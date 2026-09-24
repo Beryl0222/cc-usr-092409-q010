@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "超慢跑风险接力领域事件",
+  "description": "事件一经接收即不可原地改写；业务更正只能产生后继事件。负载字段按 event_type 区分。",
   "type": "object",
   "required": [
     "event_id",
@@ -9,7 +10,8 @@
     "aggregate_id",
     "occurred_at",
     "version",
-    "summary"
+    "summary",
+    "payload"
   ],
   "properties": {
     "event_id": {
@@ -20,10 +22,14 @@
       "type": "string",
       "enum": [
         "PLAN_APPROVED",
+        "SESSION_SCHEDULED",
         "SESSION_RECORDED",
-        "RISK_FLAGGED",
+        "OBSERVATION_IMPORTED",
+        "RISK_ASSESSED",
         "ACTIVITY_PAUSED",
-        "REVIEW_COMPLETED"
+        "REVIEW_OPENED",
+        "REVIEW_COMPLETED",
+        "TRAINING_RESUMED"
       ]
     },
     "aggregate_type": {
@@ -41,16 +47,326 @@
     },
     "occurred_at": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "事件在业务上发生/生效的时间，而非系统接收时间。"
     },
     "version": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "description": "聚合内的事件序号。"
     },
     "summary": {
       "type": "string",
       "minLength": 1
+    },
+    "payload": {
+      "type": "object"
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "event_type": { "const": "PLAN_APPROVED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "plan_id",
+              "plan_version",
+              "applicable_group",
+              "load_ladder",
+              "stop_conditions",
+              "approver",
+              "approved_at",
+              "effective_from"
+            ],
+            "properties": {
+              "plan_id": { "type": "string", "minLength": 1 },
+              "plan_version": { "type": "integer", "minimum": 1 },
+              "supersedes_plan_id": { "type": ["string", "null"] },
+              "applicable_group": {
+                "type": "object",
+                "required": ["conditions"],
+                "properties": {
+                  "conditions": { "type": "array", "items": { "type": "string" } }
+                }
+              },
+              "load_ladder": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["level", "zone"],
+                  "properties": {
+                    "level": { "type": "integer", "minimum": 1 },
+                    "zone": {
+                      "type": "object",
+                      "required": ["metric", "min", "max", "unit"],
+                      "properties": {
+                        "metric": { "type": "string" },
+                        "min": { "type": "number" },
+                        "max": { "type": "number" },
+                        "unit": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              },
+              "stop_conditions": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["code", "description"],
+                  "properties": {
+                    "code": { "type": "string" },
+                    "description": { "type": "string" },
+                    "threshold": { "type": ["number", "string", "null"] }
+                  }
+                }
+              },
+              "approver": {
+                "type": "object",
+                "required": ["person_id", "role"],
+                "properties": {
+                  "person_id": { "type": "string" },
+                  "role": { "type": "string" },
+                  "name": { "type": "string" }
+                }
+              },
+              "approved_at": { "type": "string", "format": "date-time" },
+              "effective_from": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "SESSION_SCHEDULED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["plan_id", "plan_version", "session_id", "slot_at", "load_level"],
+            "properties": {
+              "plan_id": { "type": "string" },
+              "plan_version": { "type": "integer" },
+              "session_id": { "type": "string" },
+              "slot_at": { "type": "string", "format": "date-time" },
+              "expected_duration_minutes": { "type": "integer", "minimum": 1 },
+              "load_level": { "type": "integer" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "SESSION_RECORDED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["plan_id", "plan_version", "session_id", "completed", "recorded_at"],
+            "properties": {
+              "plan_id": { "type": "string" },
+              "plan_version": { "type": "integer" },
+              "session_id": { "type": "string" },
+              "started_at": { "type": ["string", "null"], "format": "date-time" },
+              "finished_at": { "type": ["string", "null"], "format": "date-time" },
+              "completed": { "type": "boolean" },
+              "load_level": { "type": "integer" },
+              "recorded_facts": { "type": "object" },
+              "recorded_at": { "type": "string", "format": "date-time" },
+              "note": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "OBSERVATION_IMPORTED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["observation_id", "source", "observed_at", "received_at", "content"],
+            "properties": {
+              "observation_id": { "type": "string", "minLength": 1 },
+              "source": {
+                "type": "object",
+                "required": ["type"],
+                "properties": {
+                  "type": {
+                    "type": "string",
+                    "enum": ["self_report", "field_observation", "medical_advice"]
+                  },
+                  "person_id": { "type": "string" },
+                  "role": { "type": "string" },
+                  "name": { "type": "string" },
+                  "org": { "type": "string" }
+                }
+              },
+              "observed_at": { "type": "string", "format": "date-time" },
+              "received_at": { "type": "string", "format": "date-time" },
+              "content": {
+                "type": "object",
+                "required": ["code"],
+                "properties": {
+                  "code": { "type": "string" },
+                  "severity": { "type": "string" },
+                  "detail": { "type": "string" },
+                  "session_id": { "type": "string", "description": "显式关联的场次；缺省时按发生时间重叠归属活动线。" }
+                }
+              },
+              "conflict_key": {
+                "type": ["string", "null"],
+                "description": "内容冲突隔离键：不同 conflict_key 的矛盾观察各自独立留存，不互相覆盖。"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "RISK_ASSESSED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["observation_ids", "level", "rule_version", "assessed_at"],
+            "properties": {
+              "observation_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+              "level": {
+                "type": "string",
+                "enum": ["low", "elevated", "high", "stop_line"],
+                "description": "系统只提出风险等级，不代替专业决策。"
+              },
+              "stop_condition_code": { "type": ["string", "null"] },
+              "rule_version": { "type": "string" },
+              "rationale": { "type": "string" },
+              "assessed_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "ACTIVITY_PAUSED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["scope", "reason", "trigger_event_id", "effective_from"],
+            "properties": {
+              "scope": {
+                "type": "object",
+                "required": ["kind"],
+                "properties": {
+                  "kind": { "type": "string", "enum": ["plan", "activity"] },
+                  "plan_id": { "type": "string" },
+                  "activity_ids": { "type": "array", "items": { "type": "string" } }
+                }
+              },
+              "reason": { "type": "string" },
+              "trigger_event_id": { "type": "string" },
+              "stop_condition_code": { "type": ["string", "null"] },
+              "effective_from": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "REVIEW_OPENED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["review_id", "trigger_event_id", "reason", "opened_at", "included_session_ids"],
+            "properties": {
+              "review_id": { "type": "string" },
+              "trigger_event_id": { "type": "string" },
+              "reason": { "type": "string" },
+              "opened_at": { "type": "string", "format": "date-time" },
+              "included_session_ids": { "type": "array", "items": { "type": "string" } },
+              "observation_ids": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "REVIEW_COMPLETED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": ["review_id", "reviewer", "decision", "completed_at"],
+            "properties": {
+              "review_id": { "type": "string" },
+              "reviewer": {
+                "type": "object",
+                "required": ["person_id", "role"],
+                "properties": {
+                  "person_id": { "type": "string" },
+                  "role": { "type": "string" },
+                  "name": { "type": "string" }
+                }
+              },
+              "decision": {
+                "type": "string",
+                "enum": ["remain_paused", "require_new_plan", "resolved"]
+              },
+              "findings": { "type": "string" },
+              "evidence_event_ids": { "type": "array", "items": { "type": "string" } },
+              "completed_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "TRAINING_RESUMED" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "required": [
+              "new_plan_id",
+              "new_plan_version",
+              "previous_plan_id",
+              "confirmer",
+              "load_ladder",
+              "observation_window_until",
+              "based_on_event_ids",
+              "resumed_at"
+            ],
+            "properties": {
+              "new_plan_id": { "type": "string" },
+              "new_plan_version": { "type": "integer" },
+              "previous_plan_id": { "type": "string" },
+              "confirmer": {
+                "type": "object",
+                "required": ["person_id", "role"],
+                "properties": {
+                  "person_id": { "type": "string" },
+                  "role": { "type": "string" },
+                  "name": { "type": "string" }
+                }
+              },
+              "load_ladder": { "type": "array", "minItems": 1 },
+              "observation_window_until": {
+                "type": "string",
+                "format": "date-time",
+                "description": "复训观察期限；期内出现新风险须重新复核。"
+              },
+              "based_on_event_ids": { "type": "array", "items": { "type": "string" } },
+              "resumed_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

@@ -5,5 +5,25 @@
   "aggregate_id": "slow_jog_risk_handoff-001",
   "occurred_at": "2026-09-20T18:00:00+08:00",
   "version": 1,
-  "summary": "登记超慢跑风险接力的首条领域记录"
+  "summary": "批准超慢跑首版计划（冻结适用人群、负荷区间与停止条件）",
+  "payload": {
+    "plan_id": "plan-001",
+    "plan_version": 1,
+    "applicable_group": {
+      "conditions": ["社区超慢跑常规参与者", "近6个月无心血管急性事件"]
+    },
+    "load_ladder": [
+      { "level": 1, "zone": { "metric": "heart_rate", "min": 90, "max": 110, "unit": "bpm" } },
+      { "level": 2, "zone": { "metric": "heart_rate", "min": 100, "max": 120, "unit": "bpm" } },
+      { "level": 3, "zone": { "metric": "heart_rate", "min": 110, "max": 130, "unit": "bpm" } }
+    ],
+    "stop_conditions": [
+      { "code": "CHEST_PAIN", "description": "运动中或运动后胸痛、胸闷", "threshold": null },
+      { "code": "SYNCOPE", "description": "晕厥或近乎晕厥", "threshold": null },
+      { "code": "HR_OVER_MAX", "description": "心率超过当前阶梯上限", "threshold": 130 }
+    ],
+    "approver": { "person_id": "staff-007", "role": "community_sport_instructor", "name": "李指导" },
+    "approved_at": "2026-09-20T18:00:00+08:00",
+    "effective_from": "2026-09-21T07:00:00+08:00"
+  }
 }
