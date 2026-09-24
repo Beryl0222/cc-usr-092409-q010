@@ -2,8 +2,29 @@
   "event_id": "092108-014-sample-001",
   "event_type": "PLAN_APPROVED",
   "aggregate_type": "participant_plan",
-  "aggregate_id": "slow_jog_risk_handoff-001",
+  "aggregate_id": "plan-P001-v1",
   "occurred_at": "2026-09-20T18:00:00+08:00",
   "version": 1,
-  "summary": "登记超慢跑风险接力的首条领域记录"
+  "summary": "批准 P001 超慢跑计划 v1：低强度起步，胸痛/晕厥等为停止线",
+  "payload": {
+    "participant_id": "P001",
+    "plan_version": "v1",
+    "supersedes": null,
+    "population": {
+      "cohort": "社区成年慢病稳定期超慢跑入门者",
+      "contraindications": ["未控制的高血压", "急性心血管事件恢复期"]
+    },
+    "intensity_bands": [
+      { "code": "WALK", "hr_zone": [80, 100], "rpe_max": 3, "duration_minutes_max": 20 },
+      { "code": "SLOW_JOG_A", "hr_zone": [100, 120], "rpe_max": 4, "duration_minutes_max": 30 }
+    ],
+    "stop_lines": [
+      { "code": "CHEST_PAIN", "min_severity": "mild", "scope": { "all_future": true }, "note": "胸痛立即停止全部后续活动" },
+      { "code": "SYNCOPE", "min_severity": "mild", "scope": { "all_future": true } },
+      { "code": "JOINT_PAIN", "min_severity": "moderate", "scope": { "activity_refs": ["SLOW_JOG"] }, "note": "关节疼痛仅暂停慢跑，保留步行" }
+    ],
+    "approver": { "party_id": "DR-LIN", "role": "PHYSICIAN", "name": "林医生" },
+    "effective_from": "2026-09-21T00:00:00+08:00",
+    "return_authority_roles": ["PHYSICIAN"]
+  }
 }

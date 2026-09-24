@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "领域事件基础校验",
+  "description": "超慢跑风险观察与复训接力领域服务",
   "scripts": {
     "test": "node --test",
-    "build": "node --check src/validator.js"
+    "build": "node --check src/validator.js && node --check src/rules.js && node --check src/risk-handoff.js && node --check src/journal.js"
   }
 }

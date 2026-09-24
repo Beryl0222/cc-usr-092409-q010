@@ -1,56 +1,187 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "超慢跑风险接力领域事件",
+  "description": "事件只追加、不改写。信封 occurred_at 为系统接收时间；事实发生时间保留在 payload 内（如 observed_at、started_at），以支持迟到记录按实际发生时间解释历史。",
   "type": "object",
-  "required": [
-    "event_id",
-    "event_type",
-    "aggregate_type",
-    "aggregate_id",
-    "occurred_at",
-    "version",
-    "summary"
-  ],
+  "required": ["event_id", "event_type", "aggregate_type", "aggregate_id", "occurred_at", "version", "summary", "payload"],
   "properties": {
-    "event_id": {
-      "type": "string",
-      "minLength": 1
-    },
+    "event_id": { "type": "string", "minLength": 1 },
     "event_type": {
       "type": "string",
       "enum": [
         "PLAN_APPROVED",
+        "EVIDENCE_RECORDED",
+        "SESSION_SCHEDULED",
         "SESSION_RECORDED",
         "RISK_FLAGGED",
+        "STOP_LINE_TRIGGERED",
         "ACTIVITY_PAUSED",
-        "REVIEW_COMPLETED"
+        "REVIEW_OPENED",
+        "REVIEW_COMPLETED",
+        "RETURN_CONFIRMED",
+        "ACTIVITY_RESUMED",
+        "NOTIFICATION_QUEUED",
+        "NOTIFICATION_ACKED"
       ]
     },
     "aggregate_type": {
       "type": "string",
-      "enum": [
-        "participant_plan",
-        "activity_session",
-        "risk_observation",
-        "clinical_handoff"
-      ]
+      "enum": ["participant_plan", "activity_session", "risk_observation", "clinical_handoff"]
     },
-    "aggregate_id": {
-      "type": "string",
-      "minLength": 1
+    "aggregate_id": { "type": "string", "minLength": 1 },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "version": { "type": "integer", "minimum": 1 },
+    "summary": { "type": "string", "minLength": 1 },
+    "payload": { "type": "object" }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "role": {
+      "type": "object",
+      "required": ["party_id", "role"],
+      "properties": {
+        "party_id": { "type": "string", "minLength": 1 },
+        "role": {
+          "type": "string",
+          "enum": ["PHYSICIAN", "SPORTS_INSTRUCTOR", "COMMUNITY_GUIDE", "PARTICIPANT"]
+        },
+        "name": { "type": "string" }
+      },
+      "additionalProperties": true
     },
-    "occurred_at": {
-      "type": "string",
-      "format": "date-time"
+    "finding": {
+      "type": "object",
+      "required": ["code", "polarity"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "CHEST_PAIN",
+            "CHEST_DISCOMFORT",
+            "DYSPNEA",
+            "PALPITATION",
+            "DIZZINESS",
+            "SYNCOPE",
+            "ABNORMAL_HR",
+            "BLOOD_PRESSURE_HIGH",
+            "JOINT_PAIN",
+            "MUSCLE_SORENESS",
+            "OVEREXERTION",
+            "MEDICAL_DIAGNOSIS",
+            "MEDICAL_RESTRICTION"
+          ]
+        },
+        "polarity": { "type": "string", "enum": ["POSITIVE", "NEGATIVE"] },
+        "severity": { "type": "string", "enum": ["mild", "moderate", "severe"] },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": true
     },
-    "version": {
-      "type": "integer",
-      "minimum": 1
+    "scope": {
+      "type": "object",
+      "properties": {
+        "activity_refs": { "type": "array", "items": { "type": "string" } },
+        "session_ids": { "type": "array", "items": { "type": "string" } },
+        "all_future": { "type": "boolean" }
+      },
+      "additionalProperties": true
     },
-    "summary": {
-      "type": "string",
-      "minLength": 1
+    "planApproved": {
+      "type": "object",
+      "required": [
+        "participant_id", "plan_version", "population", "intensity_bands",
+        "stop_lines", "approver", "effective_from", "return_authority_roles"
+      ],
+      "properties": {
+        "participant_id": { "type": "string", "minLength": 1 },
+        "plan_version": { "type": "string", "minLength": 1 },
+        "supersedes": { "type": ["string", "null"] },
+        "population": {
+          "type": "object",
+          "required": ["cohort"],
+          "properties": {
+            "cohort": { "type": "string" },
+            "contraindications": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": true
+        },
+        "intensity_bands": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["code", "rpe_max"],
+            "properties": {
+              "code": { "type": "string" },
+              "hr_zone": {
+                "type": "array",
+                "items": { "type": "integer" },
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "rpe_max": { "type": "integer", "minimum": 1, "maximum": 10 },
+              "duration_minutes_max": { "type": "integer" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "stop_lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "min_severity"],
+            "properties": {
+              "code": { "type": "string" },
+              "min_severity": { "type": "string", "enum": ["mild", "moderate", "severe"] },
+              "scope": { "$ref": "#/$defs/scope" },
+              "note": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "approver": { "$ref": "#/$defs/role" },
+        "effective_from": { "type": "string", "format": "date-time" },
+        "return_authority_roles": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["PHYSICIAN", "SPORTS_INSTRUCTOR", "COMMUNITY_GUIDE"] }
+        }
+      },
+      "additionalProperties": true
+    },
+    "evidenceRecorded": {
+      "type": "object",
+      "required": ["participant_id", "observed_at", "source", "findings"],
+      "properties": {
+        "participant_id": { "type": "string" },
+        "observed_at": { "type": "string", "format": "date-time" },
+        "source": {
+          "type": "object",
+          "required": ["type", "party_id"],
+          "properties": {
+            "type": { "type": "string", "enum": ["SELF_REPORT", "FIELD_OBSERVATION", "MEDICAL_ADVICE"] },
+            "party_id": { "type": "string" },
+            "party_role": { "type": "string" },
+            "party_name": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "source_record_id": { "type": "string" },
+        "topic": { "type": "string" },
+        "findings": { "type": "array", "items": { "$ref": "#/$defs/finding" } },
+        "note": { "type": "string" }
+      },
+      "additionalProperties": true
     }
   },
-  "additionalProperties": true
+  "allOf": [
+    {
+      "if": { "properties": { "event_type": { "const": "PLAN_APPROVED" } }, "required": ["event_type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/planApproved" } } }
+    },
+    {
+      "if": { "properties": { "event_type": { "const": "EVIDENCE_RECORDED" } }, "required": ["event_type"] },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/evidenceRecorded" } } }
+    }
+  ]
 }
